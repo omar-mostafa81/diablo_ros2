@@ -143,7 +143,7 @@ public:
 
 public:
     OSDK_Movement_Ctrl_Mode_t   ctrl_mode_data;
-    OSDK_Movement_Ctrl_t             ctrl_data;
+    OSDK_Movement_Ctrl_t             ctrl_data; 
 
     bool                         ctrl_mode_cmd;
 private:
