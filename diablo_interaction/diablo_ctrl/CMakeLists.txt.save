@@ -24,7 +24,6 @@ find_package(motion_msgs REQUIRED)
 find_package(data_msgs REQUIRED)
 find_package(diablo_utils REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 include_directories(
@@ -37,14 +36,11 @@ set(dependencies
   motion_msgs
   diablo_utils
   nav_msgs
-  data_msgs
-  geometry_msgs
-  sensor_msgs
+
 )
 
 set(executable_name diablo_ctrl_node)
 set(executable_name2 path_follower)
-set(executable_name3 msgs_converter_node)
 
 add_executable(${executable_name} 
       src/diablo_ctrl.cpp
@@ -54,14 +50,8 @@ add_executable(${executable_name2}
       src/path_follower.cpp
   )
 
-add_executable(${executable_name3} 
-      src/msgs_converter_node.cpp
-  )
-
 ament_target_dependencies(${executable_name} ${dependencies})
 ament_target_dependencies(${executable_name2} ${dependencies})
-ament_target_dependencies(${executable_name3} ${dependencies})
-
 # ament_target_dependencies(${library_name} ${dependencies})
 
 
@@ -76,17 +66,8 @@ install(TARGETS ${executable_name2}
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS ${executable_name3}
-  DESTINATION lib/${PROJECT_NAME}
-)
-
 install(DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
-)
-
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}/
 )
 
 if(BUILD_TESTING)
