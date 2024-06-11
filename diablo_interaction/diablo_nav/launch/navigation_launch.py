@@ -246,6 +246,16 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', log_level],
                 parameters=[{'autostart': autostart}, {'node_names': lifecycle_nodes}],
             ),
+            Node(
+                package='diablo_nav',  
+                executable='motion_cmd_node',  
+                name='motion_cmd_node',
+                output='screen',
+                respawn=use_respawn,
+                respawn_delay=2.0,
+                parameters=[{'use_sim_time': use_sim_time}],
+                arguments=['--ros-args', '--log-level', log_level]
+            ),
         ],
     )
 
