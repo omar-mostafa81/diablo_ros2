@@ -214,15 +214,15 @@ def generate_launch_description():
     ekf_params_file = '/home/risc-diablo1/diablo_ws/misc/ekf.yaml'
     
     #Include robot_localization
-    robot_localization_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('robot_localization'),
-                'launch',
-                'ekf.launch.py'
-            )
-        )
-    )
+    # robot_localization_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(
+    #             get_package_share_directory('robot_localization'),
+    #             'launch',
+    #             'ekf.launch.py'
+    #         )
+    #     )
+    # )
 
     rtabmap_slam = Node(
             package='rtabmap_slam', executable='rtabmap', name='rtabmap', output='screen',

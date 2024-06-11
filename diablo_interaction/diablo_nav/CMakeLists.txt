@@ -16,9 +16,38 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 
+set(dependencies
+  rclcpp
+  diablo_body
+  motion_msgs
+  diablo_utils
+  nav_msgs
+  data_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+set(executable_name motion_cmd_node)
+add_executable(${executable_name} 
+      src/motion_cmd_node.cpp
+  )
+ament_target_dependencies(${executable_name} ${dependencies})
+install(TARGETS ${library_name}
+  DESTINATION lib)
+
+install(TARGETS ${executable_name}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
+)
+
 install(DIRECTORY
   launch
   params
+  rviz
+  config
   DESTINATION share/${PROJECT_NAME}/
 )
 
