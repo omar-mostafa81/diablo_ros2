@@ -9,6 +9,9 @@ from launch_ros.parameter_descriptions import ParameterValue
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import ExecuteProcess
+import ament_index_python.packages
+import launch_ros.actions
+import yaml
 import os
 
 
@@ -187,19 +190,27 @@ def generate_launch_description():
             
     #Include Velodyne launch files
 
-    velodyne_driver_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(
-            get_package_share_directory('velodyne_driver'),
-            'launch',
-            'velodyne_driver_node-VLP16-launch.py'
-        ))
-    )
+    # velodyne_driver_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         get_package_share_directory('velodyne_driver'),
+    #         'launch',
+    #         'velodyne_driver_node-VLP16-launch.py'
+    #     ))
+    # )
     
+    # velodyne_pointcloud_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         get_package_share_directory('velodyne_pointcloud'),
+    #         'launch',
+    #         'velodyne_transform_node-VLP16-launch.py'
+    #     ))
+    # )
+
     velodyne_pointcloud_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
-            get_package_share_directory('velodyne_pointcloud'),
+            get_package_share_directory('velodyne'),
             'launch',
-            'velodyne_convert_node-VLP16-launch.py'
+            'velodyne-all-nodes-VLP16-launch.py'
         ))
     )
     
@@ -255,6 +266,9 @@ def generate_launch_description():
                 'cloud_noise_filtering_min_neighbors':'5',
                 #For a planer map (apartment)
                 'Reg/Force3DoF': "true",
+		'Grid/MinGroundHeight':"0.03",
+		'Grid/MaxGroundHeight':"0.05",
+		'Grid/MaxObstacleHeight':"1.0",
 		    }],
             remappings=[
                         ('imu', '/imu/data'),
@@ -335,10 +349,11 @@ def generate_launch_description():
 
         use_sim_time_arg,
         # Velodyne Convert launch with a delay
-        TimerAction(period=1.0, actions=[velodyne_driver_launch]),
+        #   TimerAction(period=1.0, actions=[velodyne_driver_launch]),
 
         # Velodyne Driver launch with a delay
-        TimerAction(period=1.0, actions=[velodyne_pointcloud_launch]),
+        #TimerAction(period=0.0, actions=[velodyne_pointcloud_launch]),
+        velodyne_pointcloud_launch,
 
         # ICP Odometry with a delay
         TimerAction(period=5.0, actions=[rtabmap_icp_odom]),

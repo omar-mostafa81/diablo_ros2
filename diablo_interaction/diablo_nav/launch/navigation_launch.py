@@ -180,7 +180,7 @@ def generate_launch_description():
                 respawn_delay=2.0,
                 parameters=[configured_params],
                 arguments=['--ros-args', '--log-level', log_level],
-                remappings=remappings,
+                remappings=remappings + [('cmd_vel', '/diablo/cmd_vel')],
             ),
             Node(
                 package='nav2_behaviors',
@@ -272,7 +272,7 @@ def generate_launch_description():
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
-    ld.add_action(rviz_cmd)
+    #ld.add_action(rviz_cmd)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
 
