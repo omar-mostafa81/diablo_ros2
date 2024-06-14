@@ -39,6 +39,13 @@ install(TARGETS ${executable_name}
   DESTINATION lib/${PROJECT_NAME}
 )
 
+add_executable(goal_points_generator src/goal_points_generator.cpp)
+ament_target_dependencies(goal_points_generator ${dependencies})
+
+install(TARGETS goal_points_generator
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY
   launch
   params
