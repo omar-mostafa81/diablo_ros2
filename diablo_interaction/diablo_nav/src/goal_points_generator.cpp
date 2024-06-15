@@ -15,11 +15,16 @@
 #include <fstream>
 #include <filesystem>
 #include <sstream>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class GoalPointsGenerator : public rclcpp::Node
 {
 public: 
-    GoalPointsGenerator() : Node("goal_points_generator"), x_c(0), y_c(0), yaw_c(0)
+    GoalPointsGenerator() : Node("goal_points_generator"), x_c(0), y_c(0), yaw_c(0),
+                            tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock())),
+                            tf_listener_(*tf_buffer_)
     {
         // Create a subscriber to the "headings" topic from the microphone
         headings_subscriber = this->create_subscription<std_msgs::msg::Float64>(
@@ -64,7 +69,8 @@ private:
 
         geometry_msgs::msg::PoseStamped goal_pose;
         goal_pose.header.stamp = this->now();
-        goal_pose.header.frame_id = "map"; 
+        goal_pose.header.frame_id = "velodyne"; // Initial frame
+
         goal_pose.pose.position.x = x_goal;
         goal_pose.pose.position.y = y_goal;
         goal_pose.pose.position.z = 0.0;
@@ -73,13 +79,25 @@ private:
         goal_pose.pose.orientation.z = 0.0;
         goal_pose.pose.orientation.w = 1.0;
 
-        goal_publisher->publish(goal_pose);
+        // Transform the goal_pose to the "map" frame
+        try {
+            geometry_msgs::msg::PoseStamped transformed_goal_pose;
+            tf_buffer_->transform(goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(1.0));
+
+            // Publish the transformed goal_pose
+            goal_publisher->publish(transformed_goal_pose);
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN(this->get_logger(), "Could not transform goal_pose: %s", ex.what());
+        }
     }
 
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr headings_subscriber;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_publisher;
     double x_c, y_c, yaw_c;
+
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    tf2_ros::TransformListener tf_listener_;
 };
 
 int main(int argc, char * argv[])
