@@ -27,7 +27,7 @@ public:
             std::bind(&GoalPointsGenerator::goalCallback, this, std::placeholders::_1));
         
         odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/diablo/odom", 10,
+            "/icp_odom", 10,
             std::bind(&GoalPointsGenerator::odomCallback, this, std::placeholders::_1));
 
         goal_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -56,7 +56,7 @@ private:
         double heading = static_cast<double>(msg->data);
 
         // Define the distance for travel
-        double distance = 1.0;
+        double distance = 2.5;
 
         // Calculate the goal positions based on the current position and heading
         double x_goal = x_c + distance * cos(heading);
