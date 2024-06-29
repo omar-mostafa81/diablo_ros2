@@ -165,7 +165,7 @@ private:
 
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
-            if (distance < 2) {
+            if (distance < 1) {
                 double angle = std::atan2(point.y - y_c, point.x - x_c) - yaw_c;
                 //Normalize the angle to be within -pi to pi
                 if (angle > M_PI) {
@@ -179,7 +179,7 @@ private:
 
         // Define the range and step size
         double angle_increment = 1.0 * M_PI / 180.0; // Increment by 1 degree in radians
-        double range_size = 12.0 * M_PI / 180.0; // 18 is enough to give 60 cm (robot's diameter) at distance 2 meters
+        double range_size = 10.0 * M_PI / 180.0; // 18 is enough to give 60 cm (robot's diameter) at distance 2 meters
 
         std::vector<double> available_headings;
     
