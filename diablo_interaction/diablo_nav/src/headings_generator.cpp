@@ -106,8 +106,7 @@ private:
         // Convert the PointCloud2 message to a PCL point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         pcl::fromROSMsg(transformed_obstacles_cloud, *obstacles_pcl_cloud);
-        //pcl::fromROSMsg(*obstacles_cloud, *obstacles_pcl_cloud);
-        //no need to crop; it is already cropped by RTAB-Map 
+        
         obstacles_cropped_cloud = obstacles_pcl_cloud;
 
         // Crop the point cloud to a box with x and y are endless, z is from 0.3 to 1 meters
@@ -121,16 +120,6 @@ private:
 
 
     void VelodyneCallback(const sensor_msgs::msg::PointCloud2::SharedPtr velodyne_cloud) {
-        // Transform the point cloud to the map frame  
-        // sensor_msgs::msg::PointCloud2 transformed_velodyne_cloud;
-        // try {
-        //     geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
-        //         "map", velodyne_cloud->header.frame_id, tf2::TimePointZero);
-        //     tf2::doTransform(*velodyne_cloud, transformed_velodyne_cloud, transform_stamped);
-        // } catch (tf2::TransformException &ex) {
-        //     RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
-        //     return;
-        // }
 
         // Convert the PointCloud2 message to a PCL point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr velodyne_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
@@ -159,7 +148,7 @@ private:
 
         // Find the free-of-obstacles headings
             //A point is an obstacle if the distance between the current position of the robot and the point is less than 2 meters
-            //if no obstacles in a 30 degrees (yaw) interval, then the middway of this 30 degrees is the available heading
+            //if no obstacles in a X degrees (yaw) interval, then the middway of this X degrees is the available heading
         
         std::set<double> obstacle_angles; // Set to store unique obstacle angles
 
@@ -193,18 +182,9 @@ private:
                     end_angle = end_angle + 2 * M_PI;
             }
             bool obstacle_free = true;
-            // Check if any obstacles are within the range [start_angle, end_angle]
-            // for (const auto& angle : obstacle_angles) {
-            //     if (angle >= start_angle && angle <= end_angle) {
-            //         obstacle_free = false;
-            //         break;
-            //     }
-            // }
+            
             for (const auto& angle : obstacle_angles) {
-                // std::cout << "#########################" << std::endl;
-                // std::cout << "Start Angle in degrees: " << start_angle * 180/M_PI << std::endl;
-                // std::cout << "End Angle in degrees: " << end_angle * 180/M_PI << std::endl;
-                // std::cout << "Obstacle Angle in degrees: " << angle * 180/M_PI << std::endl;
+                
                 if (start_angle <= end_angle) {
                     // Normal case where interval doesn't cross the -pi/pi boundary
                     if (angle >= start_angle && angle <= end_angle) {
@@ -230,46 +210,14 @@ private:
                 } else if (available_heading < - M_PI) {
                     available_heading = available_heading + 2 * M_PI;
                 }
-                // std::cout << "#########################" << std::endl;
-                // std::cout << "Start Angle in degrees: " << start_angle * 180/M_PI << std::endl;
-                // std::cout << "End Angle in degrees: " << end_angle * 180/M_PI << std::endl;
-                // std::cout << "Available Heading in degrees: " << available_heading * 180/M_PI << std::endl;
-                //available_headings.push_back(available_heading);
+                
                 //Publish the heading
                 std_msgs::msg::Float64 heading_msg;
                 heading_msg.data = available_heading;
                 available_headings_publisher->publish(heading_msg);
-                // Check if the available heading is within 0.1 radians of any of the last 20 published headings
-                // bool should_publish = true;
-                // for (const auto& last_heading : last_published_headings) {
-                //     if (std::abs(available_heading - last_heading) < 0.1) {
-                //         should_publish = false;
-                //         break;
-                //     }
-                // }
-
-                // if (should_publish || last_published_headings.empty()) {
-                //     // Publish the heading
-                //     std_msgs::msg::Float64 heading_msg;
-                //     heading_msg.data = available_heading;
-                //     available_headings_publisher->publish(heading_msg);
-
-                //     // Add the heading to the deque and maintain size
-                //     last_published_headings.push_back(available_heading);
-                //     if (last_published_headings.size() > 30) {
-                //         last_published_headings.pop_front();
-                //         std::cout << "published headings queue is deleted" << std::endl;
-                //     }
-                // }
+              
             }
         }
-
-        // Publish each available heading
-        // for (const auto& heading : available_headings) {
-        //     std_msgs::msg::Float64 heading_msg;
-        //     heading_msg.data = heading;
-        //     available_headings_publisher->publish(heading_msg);
-        // }
         
     }
 
