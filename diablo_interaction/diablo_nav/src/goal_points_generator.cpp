@@ -41,15 +41,36 @@ public:
 
 private:
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        // Extract the positions
-        x_c = msg->pose.pose.position.x;
-        y_c = msg->pose.pose.position.y;
+        
+        geometry_msgs::msg::PoseStamped pose_in, pose_out;
+        pose_in.pose = msg->pose.pose;
+        pose_in.header = msg->header;
+        //Transform from odom frame to velodyne frame
+        try {
+            tf_buffer_->transform(pose_in, pose_out, "velodyne", tf2::durationFromSec(1.0));
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Could not transform %s to map: %s", msg->header.frame_id.c_str(), ex.what());
+            return;
+        }
+
+        //Extract the positions
+        x_c = pose_out.pose.position.x;
+        y_c = pose_out.pose.position.y;
 
         // Extract Yaw angle
-        double quat_x = msg->pose.pose.orientation.x;
-        double quat_y = msg->pose.pose.orientation.y;
-        double quat_z = msg->pose.pose.orientation.z;
-        double quat_w = msg->pose.pose.orientation.w;
+        double quat_x = pose_out.pose.orientation.x;
+        double quat_y = pose_out.pose.orientation.y;
+        double quat_z = pose_out.pose.orientation.z;
+        double quat_w = pose_out.pose.orientation.w;
+
+        // x_c = msg->pose.pose.position.x;
+        // y_c = msg->pose.pose.position.y;
+
+        // // Extract Yaw angle
+        // double quat_x = msg->pose.pose.orientation.x;
+        // double quat_y = msg->pose.pose.orientation.y;
+        // double quat_z = msg->pose.pose.orientation.z;
+        // double quat_w = msg->pose.pose.orientation.w;
 
         double siny_cosp = 2.0 * (quat_w * quat_z + quat_x * quat_y);
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
@@ -61,7 +82,7 @@ private:
         double heading = static_cast<double>(msg->data);
 
         // Define the distance for travel
-        double distance = 2.5;
+        double distance = 1.5;
 
         // Calculate the goal positions based on the current position and heading
         double x_goal = x_c + distance * cos(heading);
@@ -78,10 +99,14 @@ private:
         goal_pose.pose.orientation.y = 0.0;
         goal_pose.pose.orientation.z = 0.0;
         goal_pose.pose.orientation.w = 1.0;
+        
+        geometry_msgs::msg::PoseStamped transformed_goal_pose;
+        //without transform:
+        //goal_publisher->publish(goal_pose);
+        //transformed_goal_pose = goal_pose;
 
-        // Transform the goal_pose to the "map" frame
+        //Transform the goal_pose to the "map" frame
         try {
-            geometry_msgs::msg::PoseStamped transformed_goal_pose;
             tf_buffer_->transform(goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(1.0));
 
             // Publish the transformed goal_pose
@@ -89,6 +114,11 @@ private:
         } catch (tf2::TransformException &ex) {
             RCLCPP_WARN(this->get_logger(), "Could not transform goal_pose: %s", ex.what());
         }
+
+        // std::cout << "Current x-axis position: " << x_c << std::endl;
+        // std::cout << "Current y-axis position: " << y_c << std::endl;
+        // std::cout << "Goal x-axis position: " << transformed_goal_pose.pose.position.x << std::endl;
+        // std::cout << "Goal y-axis position: " << transformed_goal_pose.pose.position.y  << std::endl;
     }
 
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr headings_subscriber;
