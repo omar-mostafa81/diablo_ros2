@@ -168,7 +168,7 @@ private:
 
         // Define the range and step size
         double angle_increment = 1.0 * M_PI / 180.0; // Increment by 1 degree in radians
-        double range_size = 10.0 * M_PI / 180.0; // 18 is enough to give 60 cm (robot's diameter) at distance 2 meters
+        double range_size = 8.0 * M_PI / 180.0; // 18 is enough to give 60 cm (robot's diameter) at distance 2 meters
 
         std::vector<double> available_headings;
     

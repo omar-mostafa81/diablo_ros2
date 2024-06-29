@@ -268,7 +268,7 @@ def generate_launch_description():
                 'Reg/Force3DoF': "true",
 		'Grid/MinGroundHeight':"0.03",
 		'Grid/MaxGroundHeight':"0.05",
-		'Grid/MaxObstacleHeight':"1.0",
+		'Grid/MaxObstacleHeight':"0.8",
 		    }],
             remappings=[
                         ('imu', '/imu/data'),
