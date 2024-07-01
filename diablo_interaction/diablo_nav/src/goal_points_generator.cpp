@@ -74,7 +74,7 @@ private:
         double heading = static_cast<double>(msg->data);
 
         // Define the distance for travel
-        double distance = 1.5;
+        double distance = 1.0;
 
         // Calculate the goal positions based on the current position and heading
         double x_goal = x_c + distance * cos(heading);

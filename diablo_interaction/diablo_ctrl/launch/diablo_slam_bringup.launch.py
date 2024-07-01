@@ -266,9 +266,9 @@ def generate_launch_description():
                 'cloud_noise_filtering_min_neighbors':'5',
                 #For a planer map (apartment)
                 'Reg/Force3DoF': "true",
-		'Grid/MinGroundHeight':"0.03",
-		'Grid/MaxGroundHeight':"0.05",
-		'Grid/MaxObstacleHeight':"0.8",
+		        'Grid/MinGroundHeight':"0.05",
+		        'Grid/MaxGroundHeight':"0.07",
+		        'Grid/MaxObstacleHeight':"0.8",
 		    }],
             remappings=[
                         ('imu', '/imu/data'),
