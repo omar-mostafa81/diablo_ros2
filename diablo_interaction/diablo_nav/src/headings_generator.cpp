@@ -98,13 +98,13 @@ private:
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
         yaw_c = atan2(siny_cosp, cosy_cosp);
         //RTAB-Map launchs icp_odom's yaw with initial value -90, convert it to 0 
-        yaw_c = yaw_c + M_PI/2;
-        if (yaw_c > M_PI) {
-            yaw_c -= 2 * M_PI;
-        } else if (yaw_c < -M_PI) {
-            yaw_c += 2 * M_PI;
-        }
-
+        //yaw_c = yaw_c + M_PI/2;
+        //if (yaw_c > M_PI) {
+        //    yaw_c -= 2 * M_PI;
+        //} else if (yaw_c < -M_PI) {
+        //    yaw_c += 2 * M_PI;
+        // }
+	std::cout << "robot's yaw is: " << yaw_c << std::endl;
     }
 
     void PointCloud2Callback(const sensor_msgs::msg::PointCloud2::SharedPtr obstacles_cloud) {
@@ -112,16 +112,21 @@ private:
         sensor_msgs::msg::PointCloud2 transformed_obstacles_cloud;
         try {
             geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
-                "velodyne", obstacles_cloud->header.frame_id, tf2::TimePointZero);
+                "odom", obstacles_cloud->header.frame_id, tf2::TimePointZero);
             tf2::doTransform(*obstacles_cloud, transformed_obstacles_cloud, transform_stamped);
         } catch (tf2::TransformException &ex) {
             RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
             return;
         } 
         // Convert the PointCloud2 message to a PCL point cloud
-        pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::fromROSMsg(transformed_obstacles_cloud, *obstacles_pcl_cloud);
-        
+        //pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        //pcl::fromROSMsg(transformed_obstacles_cloud, *obstacles_pcl_cloud);
+        //transformed_obstacles_cloud = *obstacles_cloud;
+	pcl::PCLPointCloud2 pcl_pc2;
+        pcl_conversions::toPCL(transformed_obstacles_cloud,pcl_pc2);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::fromPCLPointCloud2(pcl_pc2,*obstacles_pcl_cloud);
+
         obstacles_cropped_cloud = obstacles_pcl_cloud;
 
         // Crop the point cloud to a box with x and y are endless, z is from 0.3 to 1 meters
@@ -176,7 +181,7 @@ private:
 
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
-            if (distance < 1) {
+            if (distance < 1.5) {
                 double angle = std::atan2(point.y - y_c, point.x - x_c) - yaw_c;
                 
                 if (angle > M_PI) {
@@ -194,9 +199,9 @@ private:
         std::vector<double> available_headings;
         const double degree_tolerance = 5.0 * M_PI / 180;  // 5 degrees in radians
         // Mutex to protect the obstacle_angles set
-        std::mutex angles_mutex;
+       // std::mutex angles_mutex;
         // Lock the mutex for safe access to obstacle_angles
-        std::lock_guard<std::mutex> lock(angles_mutex);
+        //std::lock_guard<std::mutex> lock(angles_mutex);
 
         //for (auto it = obstacle_angles.begin(); it != std::prev(obstacle_angles.end()); ++it) {
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
@@ -211,7 +216,7 @@ private:
 
             //double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
             double diff = std::abs(angle2 - angle1);
-            if (abs(diff) >= 36 * M_PI / 180) {
+            if (abs(diff) >= 23 * M_PI / 180) {
                 double middle_angle = (angle1 + angle2)/2;
 
                 if (angle1 > angle2) {

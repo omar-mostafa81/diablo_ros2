@@ -266,16 +266,16 @@ def generate_launch_description():
                 parameters=[{'use_sim_time': use_sim_time}],
                 arguments=['--ros-args', '--log-level', log_level]
             ),
-            Node(
-                package='diablo_nav',  
-                executable='headings_generator',  
-                name='headings_generator',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[{'use_sim_time': use_sim_time}],
-                arguments=['--ros-args', '--log-level', log_level]
-            ),
+           # Node(
+           #     package='diablo_nav',  
+           #     executable='headings_generator',  
+           #     name='headings_generator',
+           #     output='screen',
+           #     respawn=use_respawn,
+           #     respawn_delay=2.0,
+           #     parameters=[{'use_sim_time': use_sim_time}],
+           #     arguments=['--ros-args', '--log-level', log_level]
+           # ),
         ],
     )
 
