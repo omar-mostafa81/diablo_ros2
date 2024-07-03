@@ -20,6 +20,7 @@
 #include <set>
 #include <deque>
 #include <mutex>
+#include <fstream>
 
 
 // Include tf libraries
@@ -166,17 +167,27 @@ private:
         
         std::set<double> obstacle_angles; // Set to store unique obstacle angles
 
+        // Open a file in write mode
+        std::ofstream angle_file("src/diablo_ros2/diablo_interaction/diablo_nav/src/angles.txt");
+        if (!angle_file.is_open()) {
+            std::cerr << "Failed to open angles.txt for writing" << std::endl;
+            return;
+        }
+
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
             if (distance < 1) {
                 double angle = std::atan2(point.y - y_c, point.x - x_c) - yaw_c;
-                //Normalize the angle to be within -pi to pi
+                
                 if (angle > M_PI) {
                     angle -= 2 * M_PI;
-                } else if (angle < -M_PI) {
+                } else if (angle < - M_PI) {
                     angle += 2 * M_PI;
                 }
+
                 obstacle_angles.insert(angle); // Store the angle in the set
+                // Write angle to the file
+                angle_file << angle << std::endl;
             }
         }
 
@@ -189,23 +200,41 @@ private:
 
         //for (auto it = obstacle_angles.begin(); it != std::prev(obstacle_angles.end()); ++it) {
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
+            
             auto next_it = std::next(it);
+            if (next_it == obstacle_angles.end()) {
+                next_it = obstacle_angles.begin(); 
+            }
+            
             double angle1 = *it;
             double angle2 = *next_it;
 
-            if (abs(angle2 - angle1) >= 36 * M_PI / 180) {
-                double middle_angle = (angle1 + angle2) / 2;
+            //double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
+            double diff = std::abs(angle2 - angle1);
+            if (abs(diff) >= 36 * M_PI / 180) {
+                double middle_angle = (angle1 + angle2)/2;
+
+                if (angle1 > angle2) {
+                    middle_angle = middle_angle + M_PI;
+                }
+
+                if (middle_angle > M_PI) {
+                    middle_angle -= 2 * M_PI;
+                } else if (middle_angle < - M_PI) {
+                    middle_angle += 2 * M_PI;
+                }
 
                 if (!isAngleClose(middle_angle, available_headings, degree_tolerance)) {
-                    if (middle_angle > M_PI) {
-                        middle_angle -= 2 * M_PI;
-                    } else if (middle_angle < - M_PI) {
-                            middle_angle += 2 * M_PI;
-                    }
+                    std::cout << "###############" << std::endl <<
+                                 "first angle: " << angle1 << std::endl <<
+                                 "second angle:" << angle2 << std::endl <<
+                                 "middle angle: " << middle_angle << std::endl;
                     available_headings.push_back(middle_angle);
                 }
             }
         }
+        // Close the file
+        angle_file.close();
         //Publish the available headings
         std_msgs::msg::Float64MultiArray msg;
         msg.data = available_headings;
