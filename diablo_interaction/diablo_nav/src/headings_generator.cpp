@@ -124,7 +124,9 @@ private:
     }
 
     void PointCloud2Callback(const sensor_msgs::msg::PointCloud2::SharedPtr obstacles_cloud) {
-        // Transform the point cloud to the map frame  
+
+	no_pcl = false;
+	// Transform the point cloud to the map frame  
         sensor_msgs::msg::PointCloud2 transformed_obstacles_cloud;
         try {
             geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
@@ -136,7 +138,7 @@ private:
         } 
         // Convert the PointCloud2 message to a PCL point cloud
 
-	    pcl::PCLPointCloud2 pcl_pc2;
+	pcl::PCLPointCloud2 pcl_pc2;
         pcl_conversions::toPCL(transformed_obstacles_cloud,pcl_pc2);
         pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromPCLPointCloud2(pcl_pc2,*obstacles_pcl_cloud);
@@ -192,13 +194,15 @@ private:
             std::cerr << "Failed to open angles.txt for writing" << std::endl;
             return;
         }
-
+	
+	no_obstacles = true;
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
             //Consider pointclouds within 1.5 meters from the robot as obstacles
             if (distance < 1.5) {
                 double angle = std::atan2(point.y - y_c, point.x - x_c) - yaw_c;
-                
+                no_obstacles = false;
+
                 if (angle > M_PI) {
                     angle -= 2 * M_PI;
                 } else if (angle < - M_PI) {
