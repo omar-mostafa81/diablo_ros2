@@ -66,9 +66,31 @@ public:
         cropped_cloud_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "/cropped_cloud", 10);
 
+        // Create a publisher to the diablo/MotionCmd topic
+        motion_publisher_ = this->create_publisher<motion_msgs::msg::MotionCtrl>(
+            "diablo/MotionCmd", 10);
+
+        // Create a timer to check rotation status
+        rotation_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(100),
+            std::bind(&HeadingsGenerator::rotation_timer_callback, this));
+
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
         obstacles_cropped_cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>());
+
+        no_pcl = true;
+        no_obstacles = true;
+
+        // Initialize control parameters
+        forward_speed_ = 0.0;       // Forward speed
+        rotation_speed_ = 0.0;      // Rotation speed
+        position_error = 0.0;
+        rotation_error = 0.0;
+        Kv = 0.4;       // Forward gain factor
+        Kw = 0.2;      // Rotation gain factor
+        rotation_tolerance_ = 0.2;  // Rotation tolerance in radians
+        position_tolerance_ = 0.2; // Position tolerance in meters
     }
 
 private:
@@ -84,6 +106,7 @@ private:
     }
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+        //The odom msgs are in the odom frame
         // Extract the positions
         x_c = msg->pose.pose.position.x;
         y_c = msg->pose.pose.position.y;
@@ -97,14 +120,7 @@ private:
         double siny_cosp = 2.0 * (quat_w * quat_z + quat_x * quat_y);
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
         yaw_c = atan2(siny_cosp, cosy_cosp);
-        //RTAB-Map launchs icp_odom's yaw with initial value -90, convert it to 0 
-        //yaw_c = yaw_c + M_PI/2;
-        //if (yaw_c > M_PI) {
-        //    yaw_c -= 2 * M_PI;
-        //} else if (yaw_c < -M_PI) {
-        //    yaw_c += 2 * M_PI;
-        // }
-	std::cout << "robot's yaw is: " << yaw_c << std::endl;
+        
     }
 
     void PointCloud2Callback(const sensor_msgs::msg::PointCloud2::SharedPtr obstacles_cloud) {
@@ -119,10 +135,8 @@ private:
             return;
         } 
         // Convert the PointCloud2 message to a PCL point cloud
-        //pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        //pcl::fromROSMsg(transformed_obstacles_cloud, *obstacles_pcl_cloud);
-        //transformed_obstacles_cloud = *obstacles_cloud;
-	pcl::PCLPointCloud2 pcl_pc2;
+
+	    pcl::PCLPointCloud2 pcl_pc2;
         pcl_conversions::toPCL(transformed_obstacles_cloud,pcl_pc2);
         pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromPCLPointCloud2(pcl_pc2,*obstacles_pcl_cloud);
@@ -142,9 +156,12 @@ private:
     void VelodyneCallback(const sensor_msgs::msg::PointCloud2::SharedPtr velodyne_cloud) {
 
         // Convert the PointCloud2 message to a PCL point cloud
-        pcl::PointCloud<pcl::PointXYZ>::Ptr velodyne_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        //pcl::fromROSMsg(transformed_velodyne_cloud, *velodyne_pcl_cloud);
-        pcl::fromROSMsg(*velodyne_cloud, *velodyne_pcl_cloud);
+        //pcl::PointCloud<pcl::PointXYZ>::Ptr velodyne_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::PCLPointCloud2 pcl_pc2;
+        pcl_conversions::toPCL(*velodyne_cloud,pcl_pc2);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr velodyne_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::fromPCLPointCloud2(pcl_pc2,*velodyne_pcl_cloud);
+
 
         // Crop the point cloud to a box with x and y are endless, z is from 0.3 to 1 meters
         pcl::CropBox<pcl::PointXYZ> crop_box_filter;
@@ -157,18 +174,15 @@ private:
         //Combine the 2 pcl: the velodyne_cropped_cloud + obstacles_cropped_cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         *combined_cloud = /* *velodyne_cropped_cloud + */  *obstacles_cropped_cloud;
-        //*combined_cloud = *velodyne_pcl_cloud +  *obstacles_cropped_cloud;
-        // Convert the cropped PCL point cloud back to a ROS message
+
+        // Convert the cropped PCL point cloud back to a ROS message and publish it
         sensor_msgs::msg::PointCloud2 cropped_cloud_msg;
         pcl::toROSMsg(*combined_cloud, cropped_cloud_msg);
-        cropped_cloud_msg.header = velodyne_cloud->header; // Retain the original header
-
-        // Publish the cropped point cloud
+        cropped_cloud_msg.header = velodyne_cloud->header; 
+        cropped_cloud_msg.header.frame_id = "odom";
         cropped_cloud_publisher->publish(cropped_cloud_msg);
 
         // Find the free-of-obstacles headings
-            //A point is an obstacle if the distance between the current position of the robot and the point is less than 2 meters
-            //if no obstacles in a X degrees (yaw) interval, then the middway of this X degrees is the available heading
         
         std::set<double> obstacle_angles; // Set to store unique obstacle angles
 
@@ -181,6 +195,7 @@ private:
 
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
+            //Consider pointclouds within 1.5 meters from the robot as obstacles
             if (distance < 1.5) {
                 double angle = std::atan2(point.y - y_c, point.x - x_c) - yaw_c;
                 
@@ -198,12 +213,7 @@ private:
 
         std::vector<double> available_headings;
         const double degree_tolerance = 5.0 * M_PI / 180;  // 5 degrees in radians
-        // Mutex to protect the obstacle_angles set
-       // std::mutex angles_mutex;
-        // Lock the mutex for safe access to obstacle_angles
-        //std::lock_guard<std::mutex> lock(angles_mutex);
-
-        //for (auto it = obstacle_angles.begin(); it != std::prev(obstacle_angles.end()); ++it) {
+       
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
             
             auto next_it = std::next(it);
@@ -214,8 +224,8 @@ private:
             double angle1 = *it;
             double angle2 = *next_it;
 
-            //double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
-            double diff = std::abs(angle2 - angle1);
+            double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
+            //double diff = std::abs(angle2 - angle1);
             if (abs(diff) >= 23 * M_PI / 180) {
                 double middle_angle = (angle1 + angle2)/2;
 
@@ -238,6 +248,23 @@ private:
                 }
             }
         }
+
+        //If no obstacles detected but there are pcl2 detected, publish the main 4 directions as available headings
+        //If no pcl2 are detected, make the robot rotate for 2 seconds
+        if (!no_pcl && no_obstacles) {
+            double angle1 = 0.0;
+            double angle2 = M_PI;
+            double angle3 = -M_PI;
+            double angle4 = M_PI/2; 
+            available_headings.push_back(angle1);
+            available_headings.push_back(angle2);
+            available_headings.push_back(angle3);
+            available_headings.push_back(angle4);
+        } else if (no_pcl && no_obstacles) {
+            //rotate 45 degrees to update the octomap and start getting pointclouds
+            rotate_to(M_PI/4);
+        }
+
         // Close the file
         angle_file.close();
         //Publish the available headings
@@ -245,6 +272,7 @@ private:
         msg.data = available_headings;
         available_headings_publisher->publish(msg);
 
+        //The following algorithm will give all available headings, with overlapping
         // Define the range and step size
         // double angle_increment = 1.0 * M_PI / 180.0; // Increment by 1 degree in radians
         // double range_size = 36.0 * M_PI / 180.0; // 18 is enough to give 60 cm (robot's diameter) at distance 2 meters
@@ -302,11 +330,65 @@ private:
         
     }
 
+    rclcpp::TimerBase::SharedPtr rotation_timer_;
+    double target_yaw;
+
+    void rotate_to(double angle_in_radians) {
+        target_yaw = yaw_c + angle_in_radians;
+        // Normalize the target yaw to be within -pi to pi
+        if (target_yaw > M_PI) {
+            target_yaw -= 2 * M_PI;
+        } else if (target_yaw < -M_PI) {
+            target_yaw += 2 * M_PI;
+        }
+        rotation_in_progress = true;
+        // Initial call to update errors and publish the first command
+        update_rotation();
+    }
+
+    void update_rotation() {
+        rotation_error = target_yaw - yaw_c;
+
+        // Normalize the rotation error to be within -pi to pi
+        if (rotation_error > M_PI) {
+            rotation_error -= 2 * M_PI;
+        } else if (rotation_error < -M_PI) {
+            rotation_error += 2 * M_PI;
+        }
+
+        rotation_speed_ = Kw * rotation_error;
+
+        motion_msgs::msg::MotionCtrl cmd;
+        cmd.mode_mark = false;
+        cmd.value.forward = 0;
+        cmd.value.left = rotation_speed_;
+        cmd.value.up = 1;
+        motion_publisher_->publish(cmd);
+
+        if (abs(rotation_error) <= rotation_tolerance_) {
+            motion_msgs::msg::MotionCtrl cmd;
+            cmd.mode_mark = false;
+            cmd.value.forward = 0;
+            cmd.value.left = 0;
+            cmd.value.up = 1;
+            motion_publisher_->publish(cmd);
+            RCLCPP_INFO(this->get_logger(), "Rotated 45 degrees.");
+            rotation_in_progress = false;
+        }
+    }
+
+    void rotation_timer_callback() {
+        if (rotation_in_progress) {
+            update_rotation();
+        }
+    }
+
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr velodyne_points_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr octomap_obstacles_subscriber;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr available_headings_publisher;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cropped_cloud_publisher;
+    rclcpp::Publisher<motion_msgs::msg::MotionCtrl>::SharedPtr motion_publisher_;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -314,6 +396,16 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_cropped_cloud; 
 
     double x_c, y_c, yaw_c;
+    bool no_pcl, no_obstacles;
+    double forward_speed_;
+    double rotation_speed_;
+    double rotation_tolerance_;
+    double position_tolerance_;
+    double Kv;
+    double Kw;
+    double position_error;
+    double rotation_error;
+    bool rotation_in_progress;
 };
 
 int main(int argc, char * argv[])
