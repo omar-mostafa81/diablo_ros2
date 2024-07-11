@@ -5,6 +5,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <chrono>
 #include <functional>
@@ -59,6 +60,10 @@ public:
         odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
             "/icp_odom", 10,
             std::bind(&HeadingsGenerator::odomCallback, this, std::placeholders::_1));
+        
+        goal_state_subscriber = this->create_subscription<std_msgs::msg::Bool>(
+            "/goal_state", 10,
+            std::bind(&HeadingsGenerator::goalStateCallback, this, std::placeholders::_1));
 
         available_headings_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
             "/available_headings", 10);
@@ -81,6 +86,7 @@ public:
 
         no_pcl = true;
         no_obstacles = true;
+        publish_headings = true;
 
         // Initialize control parameters
         forward_speed_ = 0.0;       // Forward speed
@@ -121,6 +127,10 @@ private:
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
         yaw_c = atan2(siny_cosp, cosy_cosp);
         
+    }
+
+    void goalStateCallback (const std_msgs::msg::Bool::SharedPtr msg) { 
+        publish_headings = msg->data;
     }
 
     void PointCloud2Callback(const sensor_msgs::msg::PointCloud2::SharedPtr obstacles_cloud) {
@@ -189,11 +199,11 @@ private:
         std::set<double> obstacle_angles; // Set to store unique obstacle angles
 
         // Open a file in write mode
-        std::ofstream angle_file("src/diablo_ros2/diablo_interaction/diablo_nav/src/angles.txt");
-        if (!angle_file.is_open()) {
-            std::cerr << "Failed to open angles.txt for writing" << std::endl;
-            return;
-        }
+        //std::ofstream angle_file("src/diablo_ros2/diablo_interaction/diablo_nav/src/angles.txt");
+       // if (!angle_file.is_open()) {
+       //     std::cerr << "Failed to open angles.txt for writing" << std::endl;
+       //     return;
+       // }
 	
 	no_obstacles = true;
         for (const auto& point : combined_cloud->points) {
@@ -211,7 +221,7 @@ private:
 
                 obstacle_angles.insert(angle); // Store the angle in the set
                 // Write angle to the file
-                angle_file << angle << std::endl;
+               // angle_file << angle << std::endl;
             }
         }
 
@@ -266,16 +276,17 @@ private:
             available_headings.push_back(angle4);
         } else if (no_pcl && no_obstacles) {
             //rotate 45 degrees to update the octomap and start getting pointclouds
-            rotate_to(M_PI/4);
+           // rotate_to(M_PI/4);
         }
 
         // Close the file
-        angle_file.close();
+       // angle_file.close();
         //Publish the available headings
         std_msgs::msg::Float64MultiArray msg;
         msg.data = available_headings;
-        available_headings_publisher->publish(msg);
-
+        if (publish_headings) {
+            available_headings_publisher->publish(msg);
+        }
         //The following algorithm will give all available headings, with overlapping
         // Define the range and step size
         // double angle_increment = 1.0 * M_PI / 180.0; // Increment by 1 degree in radians
@@ -390,6 +401,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr velodyne_points_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr octomap_obstacles_subscriber;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_state_subscriber;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr available_headings_publisher;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cropped_cloud_publisher;
     rclcpp::Publisher<motion_msgs::msg::MotionCtrl>::SharedPtr motion_publisher_;
@@ -400,7 +412,7 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_cropped_cloud; 
 
     double x_c, y_c, yaw_c;
-    bool no_pcl, no_obstacles;
+    bool no_pcl, no_obstacles, publish_headings;
     double forward_speed_;
     double rotation_speed_;
     double rotation_tolerance_;
