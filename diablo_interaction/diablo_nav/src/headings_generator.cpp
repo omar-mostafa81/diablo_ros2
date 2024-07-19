@@ -66,7 +66,7 @@ public:
             std::bind(&HeadingsGenerator::goalStateCallback, this, std::placeholders::_1));
 
         available_headings_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
-            "/available_headings", 10);
+            "/available_headings", 1);
         
         cropped_cloud_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "/cropped_cloud", 10);
@@ -261,9 +261,11 @@ private:
                     available_headings.push_back(middle_angle);
                 }
             }
+
+
         }
 
-        //If no obstacles detected but there are pcl2 detected, publish the main 4 directions as available headings
+	 //If no obstacles detected but there are pcl2 detected, publish the main 4 directions as available headings
         //If no pcl2 are detected, make the robot rotate for 2 seconds
         if (!no_pcl && no_obstacles) {
             double angle1 = 0.0;
@@ -278,6 +280,10 @@ private:
             //rotate 45 degrees to update the octomap and start getting pointclouds
            // rotate_to(M_PI/4);
         }
+
+	rclcpp::Time current_time = this->get_clock()->now();
+        double current_time_double =  current_time.seconds();
+        available_headings.push_back(current_time_double);
 
         // Close the file
        // angle_file.close();

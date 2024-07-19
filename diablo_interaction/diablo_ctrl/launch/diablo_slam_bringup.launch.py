@@ -260,15 +260,19 @@ def generate_launch_description():
 	        	'Optimizer/Iterations':'10',
           	    'RGBD/OptimizeMaxError':'0',
           	    #'RGBD/OptimizeFromGraphEnd':'true',
-                #'Rtabmap/StartNewMapOnLoopClosure':'true'  
+                #'Rtabmap/StartNewMapOnLoopClosure':'true'
           	    'Rtabmap/DetectionRate':'1',
                 'cloud_noise_filtering_radius':'0.1',
                 'cloud_noise_filtering_min_neighbors':'5',
                 #For a planer map (apartment)
                 'Reg/Force3DoF': "true",
-		        'Grid/MinGroundHeight':"0.05",
-		        'Grid/MaxGroundHeight':"0.07",
-		        'Grid/MaxObstacleHeight':"0.8",
+                #Parameters for ground/obstacles detection
+                'Grid/GroundIsObstacle': "false",
+                'Grid/NormalsSegmentation': "false",
+		#'Grid/MinGroundHeight':"-0.25",
+                #'Grid/MaxGroundAngle': "20", #Only if NormalSegmentation = True
+		'Grid/MaxGroundHeight':"0.05", #should be set if normalSegmentation = False
+		'Grid/MaxObstacleHeight':"0.8",
 		    }],
             remappings=[
                         ('imu', '/imu/data'),

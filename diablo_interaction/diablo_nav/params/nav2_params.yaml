@@ -120,7 +120,7 @@
 
   controller_server:
     ros__parameters:
-      controller_frequency: 2.0
+      controller_frequency: 20.0
       min_x_velocity_threshold: 0.001
       min_y_velocity_threshold: 0.001
       min_theta_velocity_threshold: 0.001
@@ -167,18 +167,18 @@
         vy_samples: 15
         vtheta_samples: 40
         sim_time: 3.0
-        #linear_granularity: 0.05
-        #angular_granularity: 0.025
+        linear_granularity: 0.05
+        angular_granularity: 0.025
         transform_tolerance: 0.2
         xy_goal_tolerance: 0.1
         trans_stopped_velocity: 0.05
-        #short_circuit_trajectory_evaluation: True
+        short_circuit_trajectory_evaluation: True
         stateful: True
         critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist", "PreferForward"]
-        BaseObstacle.scale: 0.02
-        PathAlign.scale: 32.0
+        BaseObstacle.scale: 1.0
+        PathAlign.scale: 50.0
         PathAlign.forward_point_distance: 0.1
-        GoalAlign.scale: 24.0
+        GoalAlign.scale: 10.0
         GoalAlign.forward_point_distance: 0.1
         PathDist.scale: 32.0
         GoalDist.scale: 24.0
@@ -187,24 +187,24 @@
         RotateToGoal.lookahead_time: 1.0
         ObstacleFootprint.scale: 0.01
         ObstacleFootprint.sum_scores: true
-        PreferForward.theta_scale: 0.01
+        PreferForward.theta_scale: 0.05
         PreferForward.strafe_x: 0.3
       # FollowPath:
       #   plugin: "nav2_mppi_controller::MPPIController"
       #   time_steps: 56
       #   model_dt: 0.05
       #   batch_size: 2000
-      #   ax_max: 3.0
-      #   ax_min: -3.0
+      #   ax_max: 1.0
+      #   ax_min: -1.0
       #   ay_max: 3.0
-      #   az_max: 3.5
+      #   az_max: 0.0
       #   vx_std: 0.2
       #   vy_std: 0.2
-      #   wz_std: 0.4
-      #   vx_max: 0.5
-      #   vx_min: -0.35
-      #   vy_max: 0.5
-      #   wz_max: 1.9
+      #   wz_std: 0.0
+      #   vx_max: 0.2
+      #   vx_min: -0.2
+      #   vy_max: 0.0
+      #   wz_max: 0.0
       #   iteration_count: 1
       #   prune_distance: 1.7
       #   transform_tolerance: 0.1
@@ -273,6 +273,23 @@
       #     threshold_to_consider: 0.5
       #     max_angle_to_furthest: 1.0
       #     mode: 0
+     #Graceful controller
+   # FollowPath:
+   #   plugin: nav2_graceful_controller::GracefulController
+   #   transform_tolerance: 0.1
+   #   motion_target_dist: 1.6
+   #   initial_rotation: false
+   #   initial_rotation_min_angle: 0.75
+   #   final_rotation: false
+   #   allow_backward: false
+   #   k_phi: 3.0
+   #   k_delta: 2.0
+   #   beta: 0.4
+   #   lambda: 2.0
+   #   v_linear_min: -0.5
+   #   v_linear_max: 0.6
+   #   v_angular_max: 0.8
+   #   slowdown_radius: 1.5
 
   local_costmap:
     local_costmap:
@@ -280,7 +297,7 @@
         #log_level: "warn"
         use_sim_time: False
         update_frequency: 5.0
-        publish_frequency: 2.0
+        publish_frequency: 5.0
         global_frame: "odom"
         robot_base_frame: "base_link"
         map_topic: "/map"
@@ -288,14 +305,14 @@
         width: 3
         height: 3
         resolution: 0.05
-        robot_radius: 0.3
-        plugins: ["voxel_layer", "inflation_layer", "denoise_layer"]
+        robot_radius: 0.28
+        plugins: ["voxel_layer", "inflation_layer", "denoise_layer", "obstacle_layer"]
         #plugins: ["obstacle_layer", "inflation_layer", "voxel_layer"]
         inflation_layer:
           plugin: "nav2_costmap_2d::InflationLayer"
           enabled: True
-          cost_scaling_factor: 10.0
-          inflation_radius: 0.25
+          cost_scaling_factor: 80.0
+          inflation_radius: 0.5
         voxel_layer:
           plugin: "nav2_costmap_2d::VoxelLayer"
           enabled: True
@@ -309,8 +326,8 @@
           mark_threshold: 0
           observation_sources: "pointcloud"
           pointcloud:
-            topic: "/velodyne_points"
-            sensor_frame: "velodyne"
+            topic: "/cropped_cloud"
+            #sensor_frame: "velodyne"
             max_obstacle_height: 1.0
             min_obstacle_height: 0.3
             clearing: True
@@ -320,20 +337,20 @@
             raytrace_min_range: 0.0
             obstacle_max_range: 2.5
             obstacle_min_range: 0.0
-        # obstacle_layer:
-        #   plugin: "nav2_costmap_2d::ObstacleLayer"
-        #   enabled: False
-        #   observation_sources: "pointcloud"
-        #   pointcloud:
-        #     topic: /velodyne_points
-        #     max_obstacle_height: 1.0
-        #     clearing: True
-        #     marking: True
-        #     data_type: "PointCloud2"
-        #     raytrace_max_range: 3.0
-        #     raytrace_min_range: 0.0
-        #     obstacle_max_range: 2.5
-        #     obstacle_min_range: 0.0
+        obstacle_layer:
+          plugin: "nav2_costmap_2d::ObstacleLayer"
+          enabled: True
+          observation_sources: "pointcloud"
+          pointcloud:
+            topic: "/cropped_cloud"
+            max_obstacle_height: 1.0
+            clearing: True
+            marking: True
+            data_type: "PointCloud2"
+            raytrace_max_range: 3.0
+            raytrace_min_range: 0.0
+            obstacle_max_range: 2.5
+            obstacle_min_range: 0.0
         static_layer:
           plugin: "nav2_costmap_2d::StaticLayer"
           map_subscribe_transient_local: True
@@ -351,10 +368,10 @@
       ros__parameters:
         #log_level: "warn"
         update_frequency: 5.0
-        publish_frequency: 2.0
+        publish_frequency: 5.0
         global_frame: "map"
         robot_base_frame: "base_link"
-        robot_radius: 0.3
+        robot_radius: 0.265
         resolution: 0.05
         use_sim_time: False
         track_unknown_space: true
@@ -368,16 +385,16 @@
           observation_sources: "pointcloud"
           #combination_method: 0
           pointcloud:
-            topic: /velodyne_points
-            sensor_frame: "velodyne"
+            topic: "/cropped_cloud"
+            #sensor_frame: "velodyne"
             max_obstacle_height: 1.0
             min_obstacle_height: 0.3
             clearing: True
             marking: True
             data_type: "PointCloud2"
-            raytrace_max_range: 3.0
+            raytrace_max_range: 4.0
             raytrace_min_range: 0.0
-            obstacle_max_range: 2.5
+            obstacle_max_range: 3.5
             obstacle_min_range: 0.0
         # voxel_layer:
         #   plugin: "nav2_costmap_2d::VoxelLayer"
@@ -404,12 +421,13 @@
         static_layer:
           plugin: "nav2_costmap_2d::StaticLayer"
           map_subscribe_transient_local: True
-          #subscribe_to_updates: True
-          #map_topic: "/map"
+          subscribe_to_updates: True
+          map_topic: "/map"
         inflation_layer:
           plugin: "nav2_costmap_2d::InflationLayer"
-          cost_scaling_factor: 10.0
-          inflation_radius: 0.25
+          enabled: True
+          cost_scaling_factor: 1.5
+          inflation_radius: 2.65
         denoise_layer:
           plugin: "nav2_costmap_2d::DenoiseLayer"
           enabled: True
@@ -424,16 +442,36 @@
       map_subscribe_transient_local: True
       use_sim_time: False
 
+  # planner_server:
+  #   ros__parameters:
+  #     expected_planner_frequency: 20.0
+  #     planner_plugins: ["GridBased"]
+  #     GridBased:
+  #       plugin: "nav2_navfn_planner/NavfnPlanner"
+  #       tolerance: 0.5
+  #       use_astar: false
+  #       allow_unknown: true
+  #     use_sim_time: False
   planner_server:
     ros__parameters:
-      expected_planner_frequency: 20.0
       planner_plugins: ["GridBased"]
-      GridBased:
-        plugin: "nav2_navfn_planner/NavfnPlanner"
-        tolerance: 0.5
-        use_astar: false
-        allow_unknown: true
       use_sim_time: False
+      GridBased:
+        plugin: "nav2_smac_planner/SmacPlanner2D" # In Iron and older versions, "/" was used instead of "::"
+        tolerance: 0.5                      # tolerance for planning if unable to reach exact pose, in meters
+        downsample_costmap: false             # whether or not to downsample the map
+        downsampling_factor: 1                # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
+        allow_unknown: true                   # allow traveling in unknown space
+        max_iterations: 1000000               # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
+        max_on_approach_iterations: 5000      # maximum number of iterations to attempt to reach goal once in tolerance
+        max_planning_time: 10.0                # max time in s for planner to plan, smooth
+        cost_travel_multiplier: 1.0           # Cost multiplier to apply to search to steer away from high cost areas. Larger values will place in the center of aisles more exactly (if non-`FREE` cost potential field exists) but take slightly longer to compute. To optimize for speed, a value of 1.0 is reasonable. A reasonable tradeoff value is 2.0. A value of 0.0 effective disables steering away from obstacles and acts like a naive binary search A*.
+        use_final_approach_orientation: false # Whether to set the final path pose at the goal's orientation to the requested orientation (false) or in line with the approach angle so the robot doesn't rotate to heading (true)
+        smoother:
+          max_iterations: 5000
+          w_smooth: 0.3
+          w_data: 0.2
+          tolerance: 1.0e-10
 
   smoother_server:
     ros__parameters:
@@ -502,7 +540,7 @@
   collision_monitor:
     ros__parameters:
       use_sim_time: False
-      base_frame_id: "base_footprint"
+      base_frame_id: "base_link"
       odom_frame_id: "odom"
       cmd_vel_in_topic: "cmd_vel_smoothed"
       cmd_vel_out_topic: "cmd_vel"
@@ -524,7 +562,7 @@
       observation_sources: ["pointcloud"]
       pointcloud:
         type: "pointcloud"
-        topic: "/velodyne_points"
+        topic: "/cropped_cloud"
         min_height: 0.2
         max_height: 1.0
         enabled: True

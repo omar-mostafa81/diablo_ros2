@@ -37,7 +37,7 @@ public:
     {
         // Create a subscriber to the "headings" topic from the microphone
         headings_subscriber = this->create_subscription<std_msgs::msg::Float64>(
-            "/microphone/headings", 10,
+            "/microphone/headings", 1,
             std::bind(&GoalPointsGenerator::goalCallback, this, std::placeholders::_1));
         
         odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -85,6 +85,7 @@ private:
         //Publish the goal state as a flag for publishing available headings
         if (goal_reached_ || !first_goal_received) {
             std_msgs::msg::Bool state_msg;
+	    rclcpp::sleep_for(std::chrono::milliseconds(10000));
             state_msg.data = true;
             goal_state_publisher->publish(state_msg);
         } else {
