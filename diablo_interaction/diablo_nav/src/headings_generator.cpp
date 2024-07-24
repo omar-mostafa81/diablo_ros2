@@ -65,8 +65,12 @@ public:
             "/goal_state", 10,
             std::bind(&HeadingsGenerator::goalStateCallback, this, std::placeholders::_1));
 
-        available_headings_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
-            "/available_headings", 1);
+        //Safest headings are to be used by the microphone
+        SafestAvailable_headings_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/available_headings/safest", 1);
+        //All headings are to be used by the exploration node
+        AllAvailable_headings_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/available_headings/all", 1);
         
         cropped_cloud_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "/cropped_cloud", 10);
@@ -135,8 +139,8 @@ private:
 
     void PointCloud2Callback(const sensor_msgs::msg::PointCloud2::SharedPtr obstacles_cloud) {
 
-	no_pcl = false;
-	// Transform the point cloud to the map frame  
+	    no_pcl = false;
+	    // Transform the point cloud to the map frame  
         sensor_msgs::msg::PointCloud2 transformed_obstacles_cloud;
         try {
             geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
@@ -146,9 +150,9 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
             return;
         } 
-        // Convert the PointCloud2 message to a PCL point cloud
 
-	pcl::PCLPointCloud2 pcl_pc2;
+        // Convert the PointCloud2 message to a PCL point cloud
+	    pcl::PCLPointCloud2 pcl_pc2;
         pcl_conversions::toPCL(transformed_obstacles_cloud,pcl_pc2);
         pcl::PointCloud<pcl::PointXYZ>::Ptr obstacles_pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromPCLPointCloud2(pcl_pc2,*obstacles_pcl_cloud);
@@ -200,12 +204,12 @@ private:
 
         // Open a file in write mode
         //std::ofstream angle_file("src/diablo_ros2/diablo_interaction/diablo_nav/src/angles.txt");
-       // if (!angle_file.is_open()) {
-       //     std::cerr << "Failed to open angles.txt for writing" << std::endl;
-       //     return;
-       // }
+        // if (!angle_file.is_open()) {
+        //     std::cerr << "Failed to open angles.txt for writing" << std::endl;
+        //     return;
+        // }
 	
-	no_obstacles = true;
+	    no_obstacles = true;
         for (const auto& point : combined_cloud->points) {
             double distance = std::sqrt(std::pow(point.x - x_c, 2) + std::pow(point.y - y_c, 2));
             //Consider pointclouds within 1.5 meters from the robot as obstacles
@@ -225,8 +229,13 @@ private:
             }
         }
 
-        std::vector<double> available_headings;
+        std::vector<double> safest_available_headings;
+        std::vector<double> safest_ranges;
+        std::vector<double> all_available_headings;
+        std::vector<double> all_ranges;
+
         const double degree_tolerance = 5.0 * M_PI / 180;  // 5 degrees in radians
+        double min_angle = 23 * M_PI / 180;
        
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
             
@@ -238,8 +247,19 @@ private:
             double angle1 = *it;
             double angle2 = *next_it;
 
-            double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
+            //Special Case: when only 1 pcl found, angle2 = angle1, so diff = 0!
+            if (it == next_it) {
+                //add arbitrary angle 
+                angle2 = angle1 + 0.1;
+            }
+
+            //double diff = atan2(sin(angle1 - angle2), cos(angle1 - angle2));
             //double diff = std::abs(angle2 - angle1);
+            double diff = angle2 - angle1;
+            if (diff < 0) {
+                diff += 2 * M_PI;
+            }
+
             if (abs(diff) >= 23 * M_PI / 180) {
                 double middle_angle = (angle1 + angle2)/2;
 
@@ -253,46 +273,182 @@ private:
                     middle_angle += 2 * M_PI;
                 }
 
-                if (!isAngleClose(middle_angle, available_headings, degree_tolerance)) {
-                    std::cout << "###############" << std::endl <<
-                                 "first angle: " << angle1 << std::endl <<
-                                 "second angle:" << angle2 << std::endl <<
-                                 "middle angle: " << middle_angle << std::endl;
-                    available_headings.push_back(middle_angle);
+                if (!isAngleClose(middle_angle, all_available_headings, degree_tolerance)) {
+                    safest_available_headings.push_back(middle_angle);
+                    safest_ranges.push_back(abs(diff));
+                    all_available_headings.push_back(middle_angle);
+                    all_ranges.push_back(abs(diff));
+                }
+
+                // Add additional headings if range is greater than 54 degrees
+                if (abs(diff) > min_angle*2 ) {
+                    double first_heading = (angle1 + middle_angle) / 2.0;
+                    double second_heading = (angle2 + middle_angle) / 2.0;
+
+                    if (angle1 > middle_angle) {
+                        first_heading = first_heading + M_PI;
+                    } 
+
+                    if (middle_angle > angle2) {
+                        second_heading = second_heading + M_PI;
+                    } 
+
+                    if (first_heading > M_PI) {
+                        first_heading -= 2 * M_PI;
+                    }
+                    if (first_heading < -M_PI) {
+                        first_heading += 2 * M_PI;
+                    }
+
+                    if (second_heading > M_PI) {
+                        second_heading -= 2 * M_PI;
+                    }
+                    if (second_heading < -M_PI) {
+                        second_heading += 2 * M_PI;
+                    }
+
+                    if (!isAngleClose(first_heading, all_available_headings, degree_tolerance)) {
+                        all_available_headings.push_back(first_heading);
+                        all_ranges.push_back(diff/2);
+                    }
+                    if (!isAngleClose(second_heading, all_available_headings, degree_tolerance)) {
+                        all_available_headings.push_back(second_heading);
+                        all_ranges.push_back(diff/2);
+                    }
+                    
+                    // Add additional headings if the new range is greater than 54 degrees
+                    if (abs(diff/2) > min_angle*2) {
+                        // Third angle is between angle1 and first_heading
+                        double third_heading = (angle1 + first_heading) / 2;
+                        // Fourth angle is between first_heading and middle angle
+                        double fourth_heading = (first_heading + middle_angle) / 2;
+                        // Fifth Angle is between middle angle and second_heading
+                        double fifth_heading = (middle_angle + second_heading) / 2;
+                        // Sixth Angle is between second_heading and angle2
+                        double sixth_heading = (second_heading + angle2) / 2;
+
+                        if (angle1 > first_heading) {
+                            third_heading += M_PI;
+                        }
+                        if (first_heading > middle_angle) {
+                            fourth_heading += M_PI;
+                        }
+                        if (middle_angle > second_heading) {
+                            fifth_heading += M_PI;
+                        }
+                        if (second_heading > angle2) {
+                            sixth_heading += M_PI;
+                        }
+
+                        if (third_heading > M_PI) {
+                            third_heading -= 2 * M_PI;
+                        }
+                        if (third_heading < -M_PI) {
+                            third_heading += 2 * M_PI;
+                        }
+
+                        if (fourth_heading > M_PI) {
+                            fourth_heading -= 2 * M_PI;
+                        }
+                        if (fourth_heading < -M_PI) {
+                            fourth_heading += 2 * M_PI;
+                        }
+
+                        if (fifth_heading > M_PI) {
+                            fifth_heading -= 2 * M_PI;
+                        }
+                        if (fifth_heading < -M_PI) {
+                            fifth_heading += 2 * M_PI;
+                        }   
+
+                        if (sixth_heading > M_PI) {
+                            sixth_heading -= 2 * M_PI;
+                        }
+                        if (sixth_heading < -M_PI) {
+                            sixth_heading += 2 * M_PI;
+                        }
+
+                        if (!isAngleClose(third_heading, all_available_headings, degree_tolerance)) {
+                            all_available_headings.push_back(third_heading);
+                            all_ranges.push_back(diff/4);
+                        }
+                        if (!isAngleClose(fourth_heading, all_available_headings, degree_tolerance)) {
+                            all_available_headings.push_back(fourth_heading);
+                            all_ranges.push_back(diff/4);
+                        }
+                        if (!isAngleClose(fifth_heading, all_available_headings, degree_tolerance)) {
+                            all_available_headings.push_back(fifth_heading);
+                            all_ranges.push_back(diff/4);
+                        }
+                        if (!isAngleClose(sixth_heading, all_available_headings, degree_tolerance)) {
+                            all_available_headings.push_back(sixth_heading);
+                            all_ranges.push_back(diff/4);
+                        }
+                        
+                    }
+                        
                 }
             }
 
-
         }
 
-	 //If no obstacles detected but there are pcl2 detected, publish the main 4 directions as available headings
+	    //If no obstacles detected but there are pcl2 detected, publish the main 4 directions as available headings
         //If no pcl2 are detected, make the robot rotate for 2 seconds
-        if (!no_pcl && no_obstacles) {
-            double angle1 = 0.0;
-            double angle2 = M_PI;
-            double angle3 = -M_PI;
-            double angle4 = M_PI/2; 
-            available_headings.push_back(angle1);
-            available_headings.push_back(angle2);
-            available_headings.push_back(angle3);
-            available_headings.push_back(angle4);
+        if ((!no_pcl && no_obstacles) || (safest_available_headings.empty() && no_obstacles)) {
+            //Make it prefer moving forward, then backward, then to the right, then to the left
+            all_available_headings.push_back(0.0);
+            all_ranges.push_back(M_PI*2);
+            all_available_headings.push_back(M_PI);
+            all_ranges.push_back(M_PI);
+            all_available_headings.push_back(-M_PI/2);
+            all_ranges.push_back(M_PI/2);
+            all_available_headings.push_back(M_PI/2);
+            all_ranges.push_back(M_PI/2);
+
+            safest_available_headings.push_back(0.0);
+            safest_ranges.push_back(M_PI*2);
+            safest_available_headings.push_back(M_PI);
+            safest_ranges.push_back(M_PI);
+            safest_available_headings.push_back(-M_PI/2);
+            safest_ranges.push_back(M_PI/2);
+            safest_available_headings.push_back(M_PI/2);
+            safest_ranges.push_back(M_PI/2);
+
         } else if (no_pcl && no_obstacles) {
             //rotate 45 degrees to update the octomap and start getting pointclouds
-           // rotate_to(M_PI/4);
+            //rotate_to(M_PI/8);
         }
 
-	rclcpp::Time current_time = this->get_clock()->now();
-        double current_time_double =  current_time.seconds();
-        available_headings.push_back(current_time_double);
+        //This addition of time was for debugging purposes, ignore.
+	    // rclcpp::Time current_time = this->get_clock()->now();
+        // double current_time_double =  current_time.seconds();
+        // safest_available_headings.push_back(current_time_double);
 
         // Close the file
-       // angle_file.close();
-        //Publish the available headings
-        std_msgs::msg::Float64MultiArray msg;
-        msg.data = available_headings;
+        // angle_file.close();
+        //Publish the SAFEST available headings
+
+        std_msgs::msg::Float64MultiArray msg1;
+        msg1.data = safest_available_headings;
+        //Publish the safest headings for the microphone ONLY if the goal is reached
         if (publish_headings) {
-            available_headings_publisher->publish(msg);
+            SafestAvailable_headings_publisher->publish(msg1);
         }
+
+        // Combine the headings and ranges, then sort by range
+        std::vector<std::pair<double, double>> sorted_all_headings_with_ranges = sortHeadingsByRange(all_available_headings, all_ranges);
+
+        // Extract the sorted all headings
+        std::vector<double> sorted_all_headings;
+        for (const auto& pair : sorted_all_headings_with_ranges) {
+            sorted_all_headings.push_back(pair.second);
+        }
+
+        //ALWAYS Publish all of the headings for the exploration node.
+        std_msgs::msg::Float64MultiArray msg2;
+        msg2.data = sorted_all_headings;
+        AllAvailable_headings_publisher->publish(msg2);
+
         //The following algorithm will give all available headings, with overlapping
         // Define the range and step size
         // double angle_increment = 1.0 * M_PI / 180.0; // Increment by 1 degree in radians
@@ -404,11 +560,24 @@ private:
         }
     }
 
+    // Helper function to sort headings based on ranges
+    std::vector<std::pair<double, double>> sortHeadingsByRange(
+        const std::vector<double>& headings,
+        const std::vector<double>& ranges) {
+        std::vector<std::pair<double, double>> paired;
+        for (size_t i = 0; i < headings.size(); ++i) {
+            paired.emplace_back(ranges[i], headings[i]);
+        }
+        std::sort(paired.rbegin(), paired.rend());  // Sort in descending order based on range
+        return paired;
+    }
+
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr velodyne_points_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr octomap_obstacles_subscriber;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_state_subscriber;
-    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr available_headings_publisher;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr SafestAvailable_headings_publisher;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr AllAvailable_headings_publisher;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cropped_cloud_publisher;
     rclcpp::Publisher<motion_msgs::msg::MotionCtrl>::SharedPtr motion_publisher_;
 
