@@ -140,6 +140,10 @@ public:
         safestAvailable_headings_subscriber = this->create_subscription<std_msgs::msg::Float64MultiArray>(
             "/available_headings/safest", 1,
             std::bind(&GoalPointsGenerator::safestAv_Headings_Callback, this, std::placeholders::_1));
+
+        odom_subscriber = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/icp_odom", 10,
+            std::bind(&GoalPointsGenerator::odomCallback, this, std::placeholders::_1));
         
         AllAvailable_headings_subscriber_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
             "/available_headings/all", 10,
@@ -158,6 +162,9 @@ public:
     
         timer_ = this->create_wall_timer(
         std::chrono::milliseconds(100), std::bind(&GoalPointsGenerator::explore, this));
+        // Initialize the waypoints set
+        visited_waypoints_ = std::make_shared<std::unordered_set<Waypoint>>();
+        x_global_frame = 0.0; y_global_frame = 0.0; yaw_global_frame = 0.0;
     
     }
 
@@ -210,7 +217,7 @@ private:
         pose_in1.header = msg->header;
         //Transform from "odom" frame to velodyne frame
         try {
-            tf_buffer_->transform(pose_in1, pose_out1, "map", tf2::durationFromSec(1.0));
+            tf_buffer_->transform(pose_in1, pose_out1, "map", tf2::durationFromSec(2.0));
         } catch (tf2::TransformException &ex) {
             RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Could not transform %s to map: %s", msg->header.frame_id.c_str(), ex.what());
             return;
@@ -239,7 +246,7 @@ private:
         pose_in.header = msg->header;
         //Transform from "odom" frame to velodyne frame
         try {
-            tf_buffer_->transform(pose_in, pose_out, "velodyne", tf2::durationFromSec(1.0));
+            tf_buffer_->transform(pose_in, pose_out, "velodyne", tf2::durationFromSec(2.0));
         } catch (tf2::TransformException &ex) {
             RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Could not transform %s to map: %s", msg->header.frame_id.c_str(), ex.what());
             return;
@@ -258,6 +265,7 @@ private:
         double siny_cosp = 2.0 * (quat_w * quat_z + quat_x * quat_y);
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
         yaw_c = atan2(siny_cosp, cosy_cosp);
+
     }
 
 
@@ -409,9 +417,9 @@ private:
                 // Start the exploration process
                 //A flag is used to ensure that the startExploration function won't start before the goal >1 is reached 
                 exploration_called = true;
-                startExploration();
                 RCLCPP_INFO(this->get_logger(), "Exploration algorithm is running until a heading is received from the microphone.");
-
+                startExploration();
+                
                 // Reset the flag after starting the exploration process
                 goal_reached_ = false;
                 first_goal_received = true;
@@ -438,7 +446,7 @@ private:
 
             // Half-plane at yaw_c + 90 degrees
             // Half-planes are constructed by taking the area to the LEFT of the vector
-            double angle_minus_90 = yaw_global_frame - M_PI/2;
+            double angle_minus_90 = - M_PI/2;
             //Normalize the angle to be within pi to -pi
             if (angle_minus_90 > M_PI) {
                 angle_minus_90 -= 2 * M_PI;
@@ -483,16 +491,22 @@ private:
                 double min_angle_diff = std::numeric_limits<double>::max();
 
                 for (const auto& heading : all_available_headings_) {
-                    double angle_diff = heading + yaw_global_frame;
-                    // Normalize the angle to be within pi to -pi
-                    if (angle_diff > M_PI) {
-                        angle_diff -= 2 * M_PI;
-                    } else if (angle_diff < -M_PI) {
-                        angle_diff += 2 * M_PI;
-                    }
+                    // double angle_diff = heading + yaw_global_frame;
+                    // // Normalize the angle to be within pi to -pi
+                    // if (angle_diff > M_PI) {
+                    //     angle_diff -= 2 * M_PI;
+                    // } else if (angle_diff < -M_PI) {
+                    //     angle_diff += 2 * M_PI;
+                    // }
+                    // Point goal_position(
+                    //     x_global_frame + cos(angle_diff),
+                    //     y_global_frame + sin(angle_diff)
+                    // );
+
+                    geometry_msgs::msg::PoseStamped goal_pose = calculate_goal_position(heading);
                     Point goal_position(
-                        x_global_frame + cos(angle_diff),
-                        y_global_frame + sin(angle_diff)
+                        goal_pose.pose.position.x,
+                        goal_pose.pose.position.y
                     );
 
                     std::cout << "Goal point is (" << goal_position.x << "," << goal_position.y << "), for the heading: " << heading << std::endl;
@@ -523,18 +537,33 @@ private:
 
                 if (!heading_found && atleast1_valid_heading) {
                     for (const auto& heading : all_available_headings_) {
-                        double angle_diff = heading + yaw_global_frame;
-                        // Normalize the angle to be within pi to -pi
-                        if (angle_diff > M_PI) {
-                            angle_diff -= 2 * M_PI;
-                        } else if (angle_diff < -M_PI) {
-                            angle_diff += 2 * M_PI;
-                        }
-                        Point goal_position(
-                            x_global_frame + cos(angle_diff),
-                            y_global_frame + sin(angle_diff)
-                        );
+                        // double angle_diff = heading + yaw_global_frame;
+                        // // Normalize the angle to be within pi to -pi
+                        // if (angle_diff > M_PI) {
+                        //     angle_diff -= 2 * M_PI;
+                        // } else if (angle_diff < -M_PI) {
+                        //     angle_diff += 2 * M_PI;
+                        // }
+                        // Point goal_position(
+                        //     x_global_frame + cos(angle_diff),
+                        //     y_global_frame + sin(angle_diff)
+                        // );
 
+                        geometry_msgs::msg::PoseStamped goal_pose = calculate_goal_position(heading);
+                        Point goal_position(
+                            goal_pose.pose.position.x,
+                            goal_pose.pose.position.y
+                        );
+                        //Calculate the goal yaw
+                        double quat_x = goal_pose.pose.orientation.x;
+                        double quat_y = goal_pose.pose.orientation.y;
+                        double quat_z = goal_pose.pose.orientation.z;
+                        double quat_w = goal_pose.pose.orientation.w;
+
+                        double siny_cosp = 2.0 * (quat_w * quat_z + quat_x * quat_y);
+                        double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
+                        double angle_diff = atan2(siny_cosp, cosy_cosp);
+                        
                         std::cout << "Goal point is (" << goal_position.x << "," << goal_position.y << "), for the heading: " << heading << std::endl;
 
                         if (point_in_polygon(goal_position, intersection)) {
@@ -575,16 +604,22 @@ private:
             double exploration_direction;
             bool exploration_dir_found = false;
             for (const auto& heading : all_available_headings_) {
-                double angle_diff = heading + yaw_global_frame;
-                // Normalize the angle to be within pi to -pi
-                if (angle_diff > M_PI) {
-                    angle_diff -= 2 * M_PI;
-                } else if (angle_diff < -M_PI) {
-                    angle_diff += 2 * M_PI;
-                }
+                // double angle_diff = heading + yaw_global_frame;
+                // // Normalize the angle to be within pi to -pi
+                // if (angle_diff > M_PI) {
+                //     angle_diff -= 2 * M_PI;
+                // } else if (angle_diff < -M_PI) {
+                //     angle_diff += 2 * M_PI;
+                // }
+                // Point goal_position(
+                //     x_global_frame + cos(angle_diff),
+                //     y_global_frame + sin(angle_diff)
+                // );
+
+                geometry_msgs::msg::PoseStamped goal_pose = calculate_goal_position(heading);
                 Point goal_position(
-                    x_global_frame + cos(angle_diff),
-                    y_global_frame + sin(angle_diff)
+                    goal_pose.pose.position.x,
+                    goal_pose.pose.position.y
                 );
 
                 // Check if this goal is near any visited waypoints
@@ -639,8 +674,8 @@ private:
 
     void rotateToHeading(double heading)
     {
-        //new orientation is current + heading
-        double new_orientation = yaw_global_frame + heading;
+        //new orientation is heading
+        double new_orientation =  heading;
         std::cout << "New orientation is: " << new_orientation << std::endl;
 
         if (new_orientation > M_PI) {
@@ -651,11 +686,11 @@ private:
         // Create the goal pose for the initial position
         geometry_msgs::msg::PoseStamped rotate_goal_pose;
         rotate_goal_pose.header.stamp = this->now();
-        rotate_goal_pose.header.frame_id = "map";  
+        rotate_goal_pose.header.frame_id = "velodyne";  
 
         //keep the current position
-        rotate_goal_pose.pose.position.x = x_global_frame;
-        rotate_goal_pose.pose.position.y = y_global_frame;
+        rotate_goal_pose.pose.position.x = x_c;
+        rotate_goal_pose.pose.position.y = y_c;
         rotate_goal_pose.pose.position.z = 0.0;
 
         // Set the initial orientation
@@ -663,8 +698,17 @@ private:
         q.setRPY(0, 0, new_orientation);
         rotate_goal_pose.pose.orientation = tf2::toMsg(q);
 
-        // Publish the initial goal pose
-        sendGoal(std::make_shared<geometry_msgs::msg::PoseStamped>(rotate_goal_pose));
+        geometry_msgs::msg::PoseStamped transformed_goal_pose;
+        // Transform the goal_pose to the "map" frame
+        try {
+            // Use the same timestamp for the transform lookup
+            tf_buffer_->transform(rotate_goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(2.0));
+
+            // Publish the transformed goal_pose
+            sendGoal(std::make_shared<geometry_msgs::msg::PoseStamped>(transformed_goal_pose));
+        } catch (tf2::TransformException& ex) {
+            RCLCPP_WARN(this->get_logger(), "Could not transform goal_pose: %s", ex.what());
+        }
 
         // Set a flag to indicate that the robot is rotating
         exploration_called = false;
@@ -700,10 +744,46 @@ private:
         // Transform the goal_pose to the "map" frame
         try {
             // Use the same timestamp for the transform lookup
-            tf_buffer_->transform(goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(1.0));
+            tf_buffer_->transform(goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(2.0));
 
             // Publish the transformed goal_pose
             sendGoal(std::make_shared<geometry_msgs::msg::PoseStamped>(transformed_goal_pose));
+        } catch (tf2::TransformException& ex) {
+            RCLCPP_WARN(this->get_logger(), "Could not transform goal_pose: %s", ex.what());
+        }
+    }
+
+    //Helper function that takes the heading and find the goal position in the map frame
+    geometry_msgs::msg::PoseStamped calculate_goal_position(double heading) {
+
+        double distance = 1.0;  // Define the distance for travel
+
+        // Calculate the goal positions based on the current position and heading
+        double x_goal = x_c + distance * cos(heading);
+        double y_goal = y_c + distance * sin(heading);
+
+        // Convert heading angle to quaternion
+        tf2::Quaternion q;
+        q.setRPY(0, 0, heading);
+
+        geometry_msgs::msg::PoseStamped goal_pose;
+        goal_pose.header.stamp = this->now();
+        goal_pose.header.frame_id = "velodyne";  // Initial frame
+
+        goal_pose.pose.position.x = x_goal;
+        goal_pose.pose.position.y = y_goal;
+        goal_pose.pose.position.z = 0.0;
+        goal_pose.pose.orientation = tf2::toMsg(q);
+
+        geometry_msgs::msg::PoseStamped transformed_goal_pose;
+
+        // Transform the goal_pose to the "map" frame
+        try {
+            // Use the same timestamp for the transform lookup
+            tf_buffer_->transform(goal_pose, transformed_goal_pose, "map", tf2::durationFromSec(2.0));
+
+            // Publish the transformed goal_pose
+            return transformed_goal_pose;
         } catch (tf2::TransformException& ex) {
             RCLCPP_WARN(this->get_logger(), "Could not transform goal_pose: %s", ex.what());
         }
