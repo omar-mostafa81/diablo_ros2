@@ -328,6 +328,7 @@ private:
     {
         if (!goal_handle) {
             RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+	    goal_reached_ = true;
         } else {
             RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
         }
@@ -349,15 +350,19 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Goal was reached");
                 goal_reached_ = true;
                 last_goal_reached_time = this->now();
+		if (rotating) {
+                    rotating = false;
+                    Reset_Exploration_Direction(99999);
+                }
                 break;
             case rclcpp_action::ResultCode::ABORTED:
                 RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
-		        goal_reached_ = true;
+		goal_reached_ = true;
                 last_goal_reached_time = this->now();
                 return;
             case rclcpp_action::ResultCode::CANCELED:
                 RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
-		        goal_reached_ = true;
+		goal_reached_ = true;
                 last_goal_reached_time = this->now();
                 return;
             default:
@@ -446,7 +451,7 @@ private:
 
             // Half-plane at yaw_c + 90 degrees
             // Half-planes are constructed by taking the area to the LEFT of the vector
-            double angle_minus_90 = - M_PI/2;
+            double angle_minus_90 = yaw_global_frame - M_PI/2;
             //Normalize the angle to be within pi to -pi
             if (angle_minus_90 > M_PI) {
                 angle_minus_90 -= 2 * M_PI;

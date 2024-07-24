@@ -235,7 +235,8 @@ private:
         std::vector<double> all_ranges;
 
         const double degree_tolerance = 5.0 * M_PI / 180;  // 5 degrees in radians
-        double min_angle = 23 * M_PI / 180;
+        //Correct 23 but I am just testing with 20
+	double min_angle = 20 * M_PI / 180;
        
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
             

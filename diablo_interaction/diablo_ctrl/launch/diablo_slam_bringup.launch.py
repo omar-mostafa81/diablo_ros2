@@ -271,7 +271,7 @@ def generate_launch_description():
                 'Grid/NormalsSegmentation': "false",
 		#'Grid/MinGroundHeight':"-0.25",
                 #'Grid/MaxGroundAngle': "20", #Only if NormalSegmentation = True
-		'Grid/MaxGroundHeight':"0.07", #should be set if normalSegmentation = False
+		'Grid/MaxGroundHeight':"0.08", #should be set if normalSegmentation = False
 		'Grid/MaxObstacleHeight':"0.8",
 		    }],
             remappings=[
