@@ -266,6 +266,18 @@ private:
         double cosy_cosp = 1.0 - 2.0 * (quat_y * quat_y + quat_z * quat_z);
         yaw_c = atan2(siny_cosp, cosy_cosp);
 
+        //Publish the goal state as a flag for publishing available headings
+        if (goal_reached_ || !first_goal_received) {
+            std_msgs::msg::Bool state_msg;
+	        rclcpp::sleep_for(std::chrono::milliseconds(5000));
+            state_msg.data = true;
+            goal_state_publisher->publish(state_msg);
+        } else {
+            std_msgs::msg::Bool state_msg;
+            state_msg.data = false;
+            goal_state_publisher->publish(state_msg);
+        }
+
     }
 
 
