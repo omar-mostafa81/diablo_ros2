@@ -393,7 +393,7 @@
         denoise_layer:
           plugin: "nav2_costmap_2d::DenoiseLayer"
           enabled: true
-          minimal_group_size: 2
+          minimal_group_size: 10
           group_connectivity_type: 8
         always_send_full_costmap: True
 
@@ -468,7 +468,7 @@
         denoise_layer:
           plugin: "nav2_costmap_2d::DenoiseLayer"
           enabled: True
-          minimal_group_size: 2
+          minimal_group_size: 10
           group_connectivity_type: 8
 
   map_saver:
@@ -481,14 +481,18 @@
 
   planner_server:
     ros__parameters:
-      expected_planner_frequency: 20.0
-      planner_plugins: ["GridBased"]  
+      #reduced freq from 20 to:
+      expected_planner_frequency: 0.5
+      planner_plugins: ["GridBased"]
       GridBased:
-        plugin: "nav2_navfn_planner/NavfnPlanner"
-        tolerance: 0.5
-        use_astar: False
-        allow_unknown: True
-      use_sim_time: False
+        plugin: "medial_axis_planner/MedialAxis"
+        tolerance: 0.4  
+      # GridBased:
+      #   plugin: "nav2_navfn_planner/NavfnPlanner"
+      #   tolerance: 0.5
+      #   use_astar: False
+      #   allow_unknown: True
+      # use_sim_time: False
   # planner_server:
   #   ros__parameters:
   #     planner_plugins: ["GridBased"]

@@ -72,6 +72,13 @@ install(TARGETS headings_generator
   DESTINATION lib/${PROJECT_NAME}
 )
 
+add_executable(explore_unknown_space src/explore_unknown_space.cpp)
+ament_target_dependencies(explore_unknown_space ${dependencies})
+
+install(TARGETS explore_unknown_space
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY
   launch
   params
