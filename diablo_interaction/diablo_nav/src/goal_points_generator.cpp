@@ -145,6 +145,10 @@ public:
             "/icp_odom", 10,
             std::bind(&GoalPointsGenerator::odomCallback, this, std::placeholders::_1));
         
+	goal_pose_subscriber = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            "/goal_pose", 10,
+            std::bind(&GoalPointsGenerator::onGoalPoseReceived, this, std::placeholders::_1));
+
         AllAvailable_headings_subscriber_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
             "/available_headings/all", 10,
             std::bind(&GoalPointsGenerator::AllAvailableHeadingsCallback, this, std::placeholders::_1));
@@ -427,7 +431,7 @@ private:
             double time_to_wait = (number_of_safest_headings * 5) + 5;
             // Check if more than 10 seconds have passed since the last heading message
 
-            if ((this->now() - last_goal_reached_time).seconds() > 0)
+            if ((this->now() - last_goal_reached_time).seconds() > 999999999999999)
             {
                 RCLCPP_INFO(this->get_logger(), "No heading message received for %f seconds.", time_to_wait);
                 
@@ -933,7 +937,7 @@ private:
     rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr goal_state_publisher;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr explore_command_publisher;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscriber_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscriber;
     rclcpp::TimerBase::SharedPtr timer_;
     bool goal_reached_, first_goal_received, exploration_called, received_microphone_heading;
     bool first_plane_created, rotating;

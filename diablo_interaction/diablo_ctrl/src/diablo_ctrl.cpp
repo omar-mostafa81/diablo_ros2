@@ -101,8 +101,8 @@ int main(int argc, char **argv)
     auto node = std::make_shared<diabloCtrlNode>("diablo_ctrl_node");
 
     DIABLO::OSDK::HAL_Pi Hal;
-    if(Hal.init("/dev/ttyS3")) return -1;
-
+    //if(Hal.init("/dev/ttyS3")) return -1;
+    if(Hal.init("/dev/diablo")) return -1;
     DIABLO::OSDK::Vehicle vehicle(&Hal);                     
     if(vehicle.init()) return -1;
 
