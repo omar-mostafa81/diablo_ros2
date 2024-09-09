@@ -235,7 +235,7 @@ private:
         std::vector<double> all_ranges;
 
         const double degree_tolerance = 5.0 * M_PI / 180;  // 5 degrees in radians
-        //Correct 23 but I am just testing with 20
+        //Correct 21.4 but I am just testing with 20
 	double min_angle = 20 * M_PI / 180;
        
         for (auto it = obstacle_angles.begin(); it != obstacle_angles.end(); ++it) {
@@ -261,7 +261,7 @@ private:
                 diff += 2 * M_PI;
             }
 
-            if (abs(diff) >= 23 * M_PI / 180) {
+            if (abs(diff) >= min_angle) {
                 double middle_angle = (angle1 + angle2)/2;
 
                 if (angle1 > angle2) {

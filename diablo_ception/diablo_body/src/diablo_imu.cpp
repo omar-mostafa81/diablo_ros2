@@ -68,10 +68,10 @@ void diablo_imu_publisher::lazyPublisher(void){
 
             imu_timestamp = this->node_ptr->get_clock()->now();
             imu_msg_.header.stamp = imu_timestamp;
-            imu_msg_.header.frame_id = "diablo_robot";
+            imu_msg_.header.frame_id = "base_link";
 
             euler_msg_.header.stamp = imu_timestamp;
-            euler_msg_.header.frame_id = "diablo_robot";
+            euler_msg_.header.frame_id = "base_link";
             imu_Publisher_->publish(imu_msg_);
             euler_Publisher_->publish(euler_msg_);
 

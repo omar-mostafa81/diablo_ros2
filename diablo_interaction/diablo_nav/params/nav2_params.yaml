@@ -336,7 +336,7 @@
         width: 3
         height: 3
         resolution: 0.05
-        robot_radius: 0.28
+        robot_radius: 0.268
         plugins: ["voxel_layer", "inflation_layer", "denoise_layer", "obstacle_layer"]
         #plugins: ["obstacle_layer", "inflation_layer", "voxel_layer"]
         inflation_layer:
@@ -352,7 +352,7 @@
           publish_voxel_map: True
           #origin_x: -1.5
           #origin_y: -1.5
-          origin_z: 0.0
+          origin_z: 0.15
           z_resolution: 0.05
           z_voxels: 16
           max_obstacle_height: 1.0
@@ -372,7 +372,7 @@
             obstacle_min_range: 0.0
         obstacle_layer:
           plugin: "nav2_costmap_2d::ObstacleLayer"
-          enabled: True
+          enabled: False
           observation_sources: "pointcloud"
           pointcloud:
             topic: "/velodyne_points"
@@ -393,8 +393,8 @@
         denoise_layer:
           plugin: "nav2_costmap_2d::DenoiseLayer"
           enabled: true
-          minimal_group_size: 10
-          group_connectivity_type: 8
+          minimal_group_size: 50
+          group_connectivity_type: 4
         always_send_full_costmap: True
 
   global_costmap:
@@ -405,7 +405,8 @@
         publish_frequency: 5.0
         global_frame: "map"
         robot_base_frame: "base_link"
-        robot_radius: 0.265
+        #was 0.265
+        robot_radius: 0.268
         resolution: 0.05
         use_sim_time: False
         track_unknown_space: true
@@ -434,7 +435,7 @@
           plugin: "nav2_costmap_2d::VoxelLayer"
           enabled: True
           publish_voxel_map: True
-          origin_z: -0.26
+          origin_z: 0.15
           z_resolution: 0.05
           z_voxels: 16
           max_obstacle_height: 1.0
@@ -468,8 +469,8 @@
         denoise_layer:
           plugin: "nav2_costmap_2d::DenoiseLayer"
           enabled: True
-          minimal_group_size: 10
-          group_connectivity_type: 8
+          minimal_group_size: 50
+          group_connectivity_type: 4
 
   map_saver:
     ros__parameters:

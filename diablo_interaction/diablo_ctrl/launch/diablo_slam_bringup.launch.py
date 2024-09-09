@@ -263,7 +263,7 @@ def generate_launch_description():
                 #'Rtabmap/StartNewMapOnLoopClosure':'true'
           	    'Rtabmap/DetectionRate':'1',
                 'cloud_noise_filtering_radius':'0.1',
-                'cloud_noise_filtering_min_neighbors':'5',
+                'cloud_noise_filtering_min_neighbors':'10',
                 #For a planer map (apartment)
                 'Reg/Force3DoF': "true",
                 #Parameters for ground/obstacles detection
@@ -271,7 +271,7 @@ def generate_launch_description():
                 'Grid/NormalsSegmentation': "false",
 		#'Grid/MinGroundHeight':"-0.25",
                 #'Grid/MaxGroundAngle': "20", #Only if NormalSegmentation = True
-		'Grid/MaxGroundHeight':"0.12", #should be set if normalSegmentation = False
+		'Grid/MaxGroundHeight':"0.20", #should be set if normalSegmentation = False
 		'Grid/MaxObstacleHeight':"0.8",
 		    }],
             remappings=[
@@ -385,7 +385,7 @@ def generate_launch_description():
         #TimerAction for the 'robot_localization' ekf.launch.py
         #TimerAction(period=12.0, actions=[robot_localization_launch]),
 
-        rtabmap_slam,
+        #rtabmap_slam,
         #rtabmap_viz,
 
         #Enable only if live data 
